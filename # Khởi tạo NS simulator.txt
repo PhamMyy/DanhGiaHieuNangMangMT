@@ -1,0 +1,67 @@
+# Khởi tạo NS simulator
+set ns [new Simulator]
+
+# Tạo file log
+set tracefile [open droptail.tr w]
+set namfile [open droptail.nam w]
+$ns trace-all $tracefile
+$ns namtrace-all $namfile
+
+# Tạo các nút
+for {set i 0} {$i < 7} {incr i} {
+    set n($i) [$ns node]
+}
+
+# Liên kết các nút với thông số
+$ns duplex-link $n(0) $n(3) 5Mb 5ms DropTail
+$ns duplex-link $n(1) $n(3) 5Mb 5ms DropTail
+$ns duplex-link $n(2) $n(3) 5Mb 5ms DropTail
+$ns duplex-link $n(3) $n(4) 4Mb 2ms DropTail
+$ns duplex-link $n(4) $n(5) 3Mb 6ms DropTail
+$ns duplex-link $n(4) $n(6) 3Mb 6ms DropTail
+
+# Định nghĩa TCP (FTP) cho nút 0 và 2
+set tcp0 [new Agent/TCP]
+$ns attach-agent $n(0) $tcp0
+set sink0 [new Agent/TCPSink]
+$ns attach-agent $n(5) $sink0
+$ns connect $tcp0 $sink0
+set ftp0 [new Application/FTP]
+$ftp0 attach-agent $tcp0
+$ftp0 start
+
+set tcp2 [new Agent/TCP]
+$ns attach-agent $n(2) $tcp2
+set sink2 [new Agent/TCPSink]
+$ns attach-agent $n(6) $sink2
+$ns connect $tcp2 $sink2
+set ftp2 [new Application/FTP]
+$ftp2 attach-agent $tcp2
+$ftp2 start
+
+# Định nghĩa UDP (CBR) cho nút 1
+set udp [new Agent/UDP]
+$ns attach-agent $n(1) $udp
+set null [new Agent/Null]
+$ns attach-agent $n(4) $null
+$ns connect $udp $null
+set cbr [new Application/Traffic/CBR]
+$cbr attach-agent $udp
+$cbr set packetSize_ 1000
+$cbr set interval_ 0.01
+$cbr start
+
+# Bắt đầu và kết thúc mô phỏng
+$ns at 0.0 "puts \"Start simulation\""
+$ns at 1.0 "puts \"End simulation\""
+$ns at 1.0 "finish"
+proc finish {} {
+    global ns tracefile namfile
+    $ns flush-trace
+    close $tracefile
+    close $namfile
+    exec nam droptail.nam &
+    exit 0
+}
+
+$ns run
